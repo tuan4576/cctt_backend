@@ -58,6 +58,29 @@ class UserController extends Controller
         $token = JWTAuth::fromUser($user);
         return response()->json(compact('user', 'token'), 201);
     }
+    public function registerr(Request $request)
+    {
+        $validator = Validator::make($request->json()->all(), [
+            'name' => 'required|string|max:255',
+            'email' => 'required|string|email|max:255|unique:users',
+            'password' => 'required|string|min:6',
+            'password_confirmation' => 'required|string|same:password',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json($validator->errors()->toJson(), 400);
+        }
+
+        $user = User::create([
+            'name' => $request->json()->get('name'),
+            'email' => $request->json()->get('email'),
+            'password' => Hash::make($request->json()->get('password')), // Hashing the password
+            'photo' => 'defaultuser.jpg', // Set default photo
+        ]);
+
+        $token = JWTAuth::fromUser($user);
+        return response()->json(compact('user', 'token'), 201);
+    }
     public function login(Request $request) {
         $credentials = $request->json()->all();
         try {

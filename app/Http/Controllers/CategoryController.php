@@ -154,32 +154,32 @@ class CategoryController extends Controller
         }
     }
 
-    /**
-     * Remove the specified resource from storage.
-     *
-     * @param  \App\Models\Category  $category
-     * @return \Illuminate\Http\Response
-     */
-    public function destroy(Category $category)
-    {
-        try {
-            // Delete the category
-            $category->delete();
+    // /**
+    //  * Remove the specified resource from storage.
+    //  *
+    //  * @param  \App\Models\Category  $category
+    //  * @return \Illuminate\Http\Response
+    //  */
+    // public function destroy(Category $category)
+    // {
+    //     try {
+    //         // Delete the category
+    //         $category->delete();
 
-            // Return a success response
-            return response()->json([
-                'message' => 'Category Deleted Successfully!!'
-            ]);
-        } catch (\Exception $e) {
-            // Log the error
-            Log::error('Category deletion failed: ' . $e->getMessage());
+    //         // Return a success response
+    //         return response()->json([
+    //             'message' => 'Category Deleted Successfully!!'
+    //         ]);
+    //     } catch (\Exception $e) {
+    //         // Log the error
+    //         Log::error('Category deletion failed: ' . $e->getMessage());
 
-            return response()->json([
-                'message' => 'Category deletion failed!',
-                'error' => $e->getMessage(),
-            ], 500);
-        }
-    }
+    //         return response()->json([
+    //             'message' => 'Category deletion failed!',
+    //             'error' => $e->getMessage(),
+    //         ], 500);
+    //     }
+    // }
     /**
      * Query products by category.
      *
@@ -281,4 +281,143 @@ class CategoryController extends Controller
             ], 500);
         }
     }
+
+    public function mobileindex()
+    {
+        $categories = Category::select('id', 'name', 'photo')->get();
+        return response()->json($categories);
+    }
+    /**
+     * Update the specified category name in storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  int  $id
+     * @return \Illuminate\Http\Response
+     */
+    public function adminupdate(Request $request, $id)
+    {
+        try {
+            $category = Category::findOrFail($id);
+            
+            $request->validate([
+                'name' => 'required|string|max:255',
+            ]);
+
+            $category->name = $request->name;
+            $category->save();
+
+            return response()->json([
+                'message' => 'Category name updated successfully',
+                'category' => $category
+            ]);
+        } catch (ModelNotFoundException $e) {
+            return response()->json([
+                'message' => 'Category not found',
+            ], 404);
+        } catch (\Exception $e) {
+            Log::error('Error updating category name: ' . $e->getMessage());
+
+            return response()->json([
+                'message' => 'Error updating category name',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+    /**
+     * Get products by category.
+     *
+     * @param  int  $id
+     * @return \Illuminate\Http\Response
+     */
+    public function getCategoryById($id)
+    {
+        try {
+            $category = Category::findOrFail($id);
+            return response()->json([
+                'id' => $category->id,
+                'name' => $category->name
+            ]);
+        } catch (ModelNotFoundException $e) {
+            return response()->json([
+                'message' => 'Category not found',
+            ], 404);
+        } catch (\Exception $e) {
+            Log::error('Error getting category: ' . $e->getMessage());
+
+            return response()->json([
+                'message' => 'Error getting category',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+    /**
+     * Store a newly created category in storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\Response
+     */
+    public function adminstore(Request $request)
+    {
+        try {
+            $validatedData = $request->validate([
+                'name' => 'required|string|max:255|unique:categories',
+            ]);
+
+            $category = new Category();
+            $category->name = $validatedData['name'];
+            $category->save();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Category created successfully',
+                'data' => $category
+            ], 201);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            Log::error('Error creating category: ' . $e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Error creating category',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+    /**
+     * Remove the specified category from storage.
+     *
+     * @param  int  $id
+     * @return \Illuminate\Http\Response
+     */
+    public function admindestroy($id)
+    {
+        try {
+            $category = Category::findOrFail($id);
+            $category->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Category deleted successfully'
+            ]);
+        } catch (ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Category not found'
+            ], 404);
+        } catch (\Exception $e) {
+            Log::error('Error deleting category: ' . $e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Error deleting category',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
 }

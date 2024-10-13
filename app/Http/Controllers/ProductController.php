@@ -21,6 +21,7 @@ class ProductController extends Controller
         $perPage = $request->input('perPage', 58);
         
         $products = Product::with('category', 'stocks')
+            ->orderByRaw('CASE WHEN status = 1 THEN 0 ELSE 1 END')
             ->orderBy('created_at', 'desc')
             ->paginate($perPage);
 
@@ -290,6 +291,47 @@ class ProductController extends Controller
         return response()->json([
             'message' => "Product successfully {$statusMessage}",
             'status' => $product->status
+        ]);
+    }
+
+    public function mobileindex(Request $request)
+    {
+        $perPage = $request->input('perPage', 6); // Default to 10 items per page for mobile
+        
+        $products = Product::with('category', 'stocks')
+            ->where('status', 1) // Only include active products
+            // ->orderBy('created_at', 'desc')
+            ->paginate($perPage);
+
+        // Transform the data to include only necessary information for mobile view
+        $transformedProducts = $products->map(function ($product) {
+            return [
+                'id' => $product->id,
+                'name' => $product->name,
+                'price' => $product->price,
+                'photo' => $product->photo,
+                'category' => $product->category ? $product->category->name : null,
+                'in_stock' => $product->stocks->sum('quantity') > 0,
+                'description' => $product->description,
+                'details' => $product->details,
+                'status' => $product->status,
+                'stock_id' => $product->stocks->first() ? $product->stocks->first()->id : null // Add stock_id
+            ];
+        });
+
+        return response()->json([
+            'current_page' => $products->currentPage(),
+            'data' => $transformedProducts,
+            'first_page_url' => $products->url(1),
+            'from' => $products->firstItem(),
+            'last_page' => $products->lastPage(),
+            'last_page_url' => $products->url($products->lastPage()),
+            'next_page_url' => $products->nextPageUrl(),
+            'path' => $products->path(),
+            'per_page' => $products->perPage(),
+            'prev_page_url' => $products->previousPageUrl(),
+            'to' => $products->lastItem(),
+            'total' => $products->total(),
         ]);
     }
 }

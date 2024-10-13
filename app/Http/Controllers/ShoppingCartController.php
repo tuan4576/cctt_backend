@@ -26,6 +26,28 @@ class ShoppingCartController extends Controller
             ->get();
         return response()->json($shoppingCartItems);
     }
+    public function indexx()
+    {
+        $user = JWTAuth::parseToken()->authenticate();
+        $shoppingCartItems = $user->cartItems()
+            ->with(['stock.product' => function ($query) {
+                $query->select('id', 'name', 'price', 'photo');
+            }])
+            ->select('id', 'stock_id', 'quantity')
+            ->orderBy('id', 'desc')
+            ->get();
+        
+        $formattedItems = $shoppingCartItems->map(function ($item) {
+            return [
+                'id' => $item->id,
+                'stock_id' => $item->stock_id,
+                'quantity' => $item->quantity,
+                'product' => $item->stock->product
+            ];
+        });
+        
+        return response()->json($formattedItems);
+    }
 
     /**
      * Show the form for creating a new resource.
@@ -39,6 +61,37 @@ class ShoppingCartController extends Controller
      * Store a newly created resource in storage.
      */
     public function store(Request $request)
+    {
+        $user = JWTAuth::parseToken()->authenticate();
+        // $user = auth()->authenticate();
+
+        $item = $user->cartItems()
+            ->where('stock_id', $request->stock_id)
+            ->first();
+
+        if (!$item) {
+            ShoppingCart::create([
+                'user_id' => $user->id,
+                'stock_id' => $request->stock_id,
+                'quantity' => $request->quantity,
+            ]);
+        } else {
+            $stock = Stock::findOrFail($request->stock_id);
+            if (($item->quantity + $request->quantity) <= $stock->quantity) {
+                $item->increment('quantity', $request->quantity);
+            } else {
+                $item->update(['quantity' => $stock->quantity]);
+            }
+        }
+
+        $cartItemCount = $user->cartItems()->count();
+        
+        return response()->json([
+            'message' => 'Item added to cart successfully',
+            'cart_item_count' => $cartItemCount
+        ]);
+    }
+    public function storee(Request $request)
     {
         $user = JWTAuth::parseToken()->authenticate();
         // $user = auth()->authenticate();

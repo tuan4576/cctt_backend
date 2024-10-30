@@ -14,22 +14,83 @@ class ProductOrdersController extends Controller
     {
         try {
             $user = JWTAuth::parseToken()->authenticate();
-            
-            // $orders = Order::where('user_id', $user->id)
-            //     ->join('stocks', 'orders.stock_id', '=', 'stocks.id')
-            //     ->join('products', 'stocks.product_id', '=', 'products.id')
-            //     ->select('orders.id', 'products.name', 'products.photo', 'products.price', 'products.brand', 'orders.quantity', 'orders.status', 'orders.created_at')
-            //     ->orderBy('orders.created_at', 'desc')
-            //     ->get();
-
-            // return response()->json($orders);
             $orders = Order::with(['stock.product'])
                 ->where('user_id', $user->id)
-                ->select('id', 'stock_id', 'quantity', 'status', 'created_at')
+                ->select('id', 'stock_id', 'quantity', 'status', 'created_at', 'order_code')
                 ->orderBy('created_at', 'desc')
                 ->get();
 
-            return response()->json($orders);
+            $groupedOrders = $orders->groupBy('order_code')->map(function ($group) {
+                $totalQuantity = $group->sum('quantity');
+                $totalAmount = $group->sum(function ($order) {
+                    return $order->quantity * $order->stock->product->price;
+                });
+
+                return [
+                    'order_code' => $group->first()->order_code,
+                    'order_date' => $group->first()->created_at,
+                    'total_quantity' => $totalQuantity,
+                    'total_amount' => $totalAmount,
+                    'status' => $group->first()->status,
+                    'items' => $group->map(function ($order) {
+                        return [
+                            'product_name' => $order->stock->product->name,
+                            'quantity' => $order->quantity,
+                            'price' => $order->stock->product->price,
+                            'subtotal' => $order->quantity * $order->stock->product->price,
+                        ];
+                    }),
+                ];
+            })->values();
+
+            return response()->json($groupedOrders);
+
+        } catch (\Tymon\JWTAuth\Exceptions\JWTException $e) {
+            return response()->json(['error' => 'Unauthorized'], 401);
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'An error occurred'], 500);
+        }
+    }
+    public function indexxx()
+    {
+        try {
+            $user = JWTAuth::parseToken()->authenticate();
+            $orders = Order::with(['stock.product'])
+                ->where('user_id', $user->id)
+                ->select('id', 'stock_id', 'quantity', 'status', 'created_at', 'order_code')
+                ->orderBy('created_at', 'desc')
+                ->get();
+
+            $groupedOrders = $orders->groupBy('order_code')->map(function ($group) {
+                $totalQuantity = $group->sum('quantity');
+                $totalAmount = $group->sum(function ($order) {
+                    return $order->quantity * $order->stock->product->price;
+                });
+
+                return [
+                    'order_code' => $group->first()->order_code,
+                    'order_date' => $group->first()->created_at,
+                    'total_quantity' => $totalQuantity,
+                    'total_amount' => $totalAmount,
+                    'status' => $group->first()->status,
+                    'items' => $group->map(function ($order) {
+                        return [
+                            'product_id' => $order->stock->product->id,
+                            'product_name' => $order->stock->product->name,
+                            'quantity' => $order->quantity,
+                            'price' => $order->stock->product->price,
+                            'subtotal' => $order->quantity * $order->stock->product->price,
+                            'photo' => $order->stock->product->photo,
+                            'description' => $order->stock->product->description,
+                            'details' => $order->stock->product->details,
+                            'status' => $order->stock->product->status,
+                            'stock_id' => $order->stock_id,
+                        ];
+                    }),
+                ];
+            })->values();
+
+            return response()->json($groupedOrders);
 
         } catch (\Tymon\JWTAuth\Exceptions\JWTException $e) {
             return response()->json(['error' => 'Unauthorized'], 401);
@@ -82,32 +143,36 @@ class ProductOrdersController extends Controller
             return response()->json(['error' => 'An error occurred'], 500);
         }
     }
-    public function show($id)
+    public function show($orderId)
     {
         try {
             $user = JWTAuth::parseToken()->authenticate();
             
             $order = Order::with(['stock.product'])
                 ->where('user_id', $user->id)
-                ->where('id', $id)
+                ->where('id', $orderId)
                 ->firstOrFail();
 
-            $productDetails = [
-                'order_id' => $order->id,
-                'product_id' => $order->stock->product->id,
-                'name' => $order->stock->product->name,
-                'photo' => $order->stock->product->photo,
-                'price' => $order->stock->product->price,
-                'brand' => $order->stock->product->brand,
-                'quantity' => $order->quantity,
-                'total_price' => $order->quantity * $order->stock->product->price,
+            $orderDetails = [
+                'id' => $order->id,
                 'status' => $order->status,
                 'ordered_at' => $order->created_at->toDateTimeString(),
+                'total_price' => $order->quantity * $order->stock->product->price,
+                'product' => [
+                    'id' => $order->stock->product->id,
+                    'name' => $order->stock->product->name,
+                    'photo' => $order->stock->product->photo,
+                    'price' => $order->stock->product->price,
+                    'brand' => $order->stock->product->brand,
+                    'description' => $order->stock->product->description,
+                    'details' => $order->stock->product->details,
+                ],
+                'quantity' => $order->quantity,
                 'size' => $order->stock->size,
                 'color' => $order->stock->color
             ];
 
-            return response()->json(['order_details' => $productDetails], 200);
+            return response()->json($orderDetails, 200);
 
         } catch (\Tymon\JWTAuth\Exceptions\JWTException $e) {
             return response()->json(['error' => 'Unauthorized'], 401);
@@ -117,81 +182,18 @@ class ProductOrdersController extends Controller
             return response()->json(['error' => 'An error occurred while fetching the order details'], 500);
         }
     }
-    // public function show(Request $request, $productId)
-    // {
-    //     try {
-    //         // Xác thực người dùng
-    //         $user = JWTAuth::parseToken()->authenticate();
-    //         $order = $user->orders()->with(['stock.product'])
-    //         ->whereHas('stock.product', function($query) use ($productId) {
-    //             $query->where('id', $productId);
-    //         })->first();
-
-
-    //         // Kiểm tra xem đơn hàng có tồn tại hay không
-    //         if (!$order) {
-    //             return response()->json(['error' => 'Sản phẩm không được tìm thấy trong đơn hàng của bạn.'], 404);
-    //         }
-
-    //         // Định dạng thông tin chi tiết sản phẩm
-    //         $productDetails = [
-    //             'id' => $order->stock->product->id,
-    //             'name' => $order->stock->product->name,
-    //             'photo' => $order->stock->product->photo,
-    //             'price' => $order->stock->product->price,
-    //             'brand' => $order->stock->product->brand,
-    //             'quantity' => $order->quantity,
-    //             'total_price' => $order->quantity * $order->stock->product->price,
-    //             'status' => $order->status,
-    //             'ordered_at' => $order->created_at->toDateTimeString(),
-    //         ];
-
-    //         return response()->json(['product_details' => $productDetails], 200);
-    //     } catch (JWTException $e) {
-    //         return response()->json(['error' => 'Token không hợp lệ'], 401);
-    //     } catch (\Exception $e) {
-    //         return response()->json(['error' => 'Không thể lấy thông tin sản phẩm.'], 500);
-    //     }
-    // }
-
-    // public function calculateOrderAmount(array $items): int
-    // {
-    //     $price = 0;
-    //     $checkoutItems = [];
-    //     foreach ($items as $item) {
-    //         if ($item['quantity'] > 0) {
-    //             $checkoutItems[] = ['stock_id' => $item['stock_id'], 'quantity' => $item['quantity']];
-    //         } else {
-    //             abort(500);
-    //         }
-    //     }
-
-    //     $user = JWTAuth::parseToken()->authenticate();
-
-    //     $cartList = $user->cartItems()
-    //         ->with('stock.product')
-    //         ->get();
-    //     foreach ($cartList as $cartItem) {
-    //         foreach ($checkoutItems as $checkoutItem) {
-    //             if ($cartItem->stock_id == $checkoutItem['stock_id']) {
-    //                 $price += $cartItem->stock->product->price * $checkoutItem['quantity'];
-    //             }
-    //         }
-    //     }
-    //     return $price * 100;
-    // }
-
-    // public function stripePost(Request $request)
-    // {
-    //     // Stripe implementation commented out
-    // }
-
+    
     public function store(Request $request)
     {
         $user = JWTAuth::parseToken()->authenticate();
         $note = "";
         
         $items = $request->json()->all();
+        
+        // Generate a unique order code
+        do {
+            $orderCode = '#' . strtoupper(substr(md5(now() . $user->id . rand()), 0, 6));
+        } while (Order::where('order_code', $orderCode)->exists());
         
         foreach ($items as $item) {
             Order::create([
@@ -200,13 +202,17 @@ class ProductOrdersController extends Controller
                 'quantity' => $item['quantity'],
                 'note' => $note,
                 'status' => 'completed',
+                'order_code' => $orderCode,
             ]);
             
             Stock::findOrFail($item['stock_id'])->decrement('quantity', $item['quantity']);
             $user->cartItems()->where('stock_id', $item['stock_id'])->delete();
         }
         
-        return response()->json(['message' => 'Orders created successfully'], 201);
+        return response()->json([
+            'message' => 'Orders created successfully',
+            'order_code' => $orderCode
+        ], 201);
     }
     public function storee(Request $request)
     {
@@ -215,6 +221,11 @@ class ProductOrdersController extends Controller
         
         $items = $request->json()->all();
         
+        // Generate a unique order code
+        do {
+            $orderCode = '#' . strtoupper(substr(md5(now() . $user->id . rand()), 0, 6));
+        } while (Order::where('order_code', $orderCode)->exists());
+        
         foreach ($items as $item) {
             Order::create([
                 'user_id' => $user->id,
@@ -222,30 +233,16 @@ class ProductOrdersController extends Controller
                 'quantity' => $item['quantity'],
                 'note' => $note,
                 'status' => 'completed',
+                'order_code' => $orderCode,
             ]);
             
             Stock::findOrFail($item['stock_id'])->decrement('quantity', $item['quantity']);
             $user->cartItems()->where('stock_id', $item['stock_id'])->delete();
         }
         
-        return response()->json(['message' => 'Orders created successfully'], 201);
+        return response()->json([
+            'message' => 'Orders created successfully',
+            'order_code' => $orderCode
+        ], 201);
     }
-    // public function store(Request $request)
-    // {
-    //     $user = JWTAuth::parseToken()->authenticate();
-    //     $note = "";
-    //     Order::create([
-    //         'user_id' => $user->id,
-    //         'stock_id' => $request->stock_id, 
-    //         'quantity' => $request->quantity,
-    //         'note' => $note,
-    //         'status' => 'completed',
-    //     ]);
-    //     Stock::findOrFail($request->stock_id)->decrement('quantity', $request->quantity);
-    //     $user->cartItems()->where('stock_id', $request->stock_id)->delete();
-    // }
-
-
-
-
 }

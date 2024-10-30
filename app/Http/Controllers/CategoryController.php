@@ -26,39 +26,6 @@ class CategoryController extends Controller
      *
      * @return \Illuminate\Http\Response
      */
-    // public function new($id)
-    // {
-    //     $products = Product::with('category')->where('category_id', $id)->orderBy('id', 'desc')->paginate(5);
-
-    //     foreach($products as $product) {
-    //         if($product->reviews()->exists()) {
-    //             $product['review'] = $product->reviews()->avg('rating');
-    //         }
-    //     }
-    //     return $products;
-    // }
-
-    
-    // public function topSelling($id) {
-
-    //     $products = Product::with('category')->where('category_id', $id)->take(6)->get();
-
-    //     foreach($products as $product) {
-    //         if($product->reviews()->exists())
-    //             $product['review'] = $product->reviews()->avg('rating');
-
-    //         if($product->stocks()->exists()) {
-    //             $num_orders = 0;
-    //             $stocks = $product->stocks()->get();
-    //             foreach($stocks as $stock)
-    //                 $num_orders += $stock->orders()->count();
-    //             $product['num_orders'] = $num_orders;
-    //         }  else {
-    //             $product['num_orders'] = 0;
-    //         }
-    //     }
-    //     return $products->sortByDesc('num_orders')->values()->all();
-    // }
 
 
 
@@ -153,33 +120,6 @@ class CategoryController extends Controller
             ], 500);
         }
     }
-
-    // /**
-    //  * Remove the specified resource from storage.
-    //  *
-    //  * @param  \App\Models\Category  $category
-    //  * @return \Illuminate\Http\Response
-    //  */
-    // public function destroy(Category $category)
-    // {
-    //     try {
-    //         // Delete the category
-    //         $category->delete();
-
-    //         // Return a success response
-    //         return response()->json([
-    //             'message' => 'Category Deleted Successfully!!'
-    //         ]);
-    //     } catch (\Exception $e) {
-    //         // Log the error
-    //         Log::error('Category deletion failed: ' . $e->getMessage());
-
-    //         return response()->json([
-    //             'message' => 'Category deletion failed!',
-    //             'error' => $e->getMessage(),
-    //         ], 500);
-    //     }
-    // }
     /**
      * Query products by category.
      *
@@ -198,6 +138,58 @@ class CategoryController extends Controller
             return response()->json([
                 'category' => $category,
                 'products' => $products
+            ]);
+        } catch (ModelNotFoundException $e) {
+            return response()->json([
+                'message' => 'Category not found',
+            ], 404);
+        } catch (\Exception $e) {
+            Log::error('Error querying products by category: ' . $e->getMessage());
+
+            return response()->json([
+                'message' => 'Error querying products',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+    public function queryMobile($id)
+    {
+        try {
+            $category = Category::findOrFail($id);
+            $products = Product::where('category_id', $id)
+                ->where('status', 1)
+                ->with('stocks')
+                ->paginate(40);
+
+            $transformedProducts = $products->map(function ($product) {
+                return [
+                    'id' => $product->id,
+                    'name' => $product->name,
+                    'price' => $product->price,
+                    'photo' => $product->photo,
+                    'category' => $product->category ? $product->category->name : null,
+                    'in_stock' => $product->stocks->sum('quantity') > 0,
+                    'description' => $product->description,
+                    'details' => $product->details,
+                    'status' => $product->status,
+                    'stock_id' => $product->stocks->first() ? $product->stocks->first()->id : null
+                ];
+            });
+
+            return response()->json([
+                'category' => $category,
+                'current_page' => $products->currentPage(),
+                'data' => $transformedProducts,
+                'first_page_url' => $products->url(1),
+                'from' => $products->firstItem(),
+                'last_page' => $products->lastPage(),
+                'last_page_url' => $products->url($products->lastPage()),
+                'next_page_url' => $products->nextPageUrl(),
+                'path' => $products->path(),
+                'per_page' => $products->perPage(),
+                'prev_page_url' => $products->previousPageUrl(),
+                'to' => $products->lastItem(),
+                'total' => $products->total(),
             ]);
         } catch (ModelNotFoundException $e) {
             return response()->json([

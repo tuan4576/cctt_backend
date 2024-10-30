@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Tymon\JWTAuth\Facades\JWTAuth;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Log;
+use App\Models\Wishlist;
 
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Storage;
@@ -248,12 +249,6 @@ class ProductController extends Controller
         return response()->json(['Message' => 'Successfully deleted product']);
     }
 
-    public function search($name){
-        return Product::with('category','stocks')
-            ->where('name', 'like', '%'.$name.'%')
-            ->orderBy('created_at','desc')
-            ->paginate(4);
-    }
 
     
     public function getproductid(Request $request)
@@ -296,11 +291,10 @@ class ProductController extends Controller
 
     public function mobileindex(Request $request)
     {
-        $perPage = $request->input('perPage', 6); // Default to 10 items per page for mobile
+        $perPage = $request->input('perPage', 6); // Default to 6 items per page for mobile
         
-        $products = Product::with('category', 'stocks')
+        $products = Product::with(['category', 'stocks', 'wishlists'])
             ->where('status', 1) // Only include active products
-            // ->orderBy('created_at', 'desc')
             ->paginate($perPage);
 
         // Transform the data to include only necessary information for mobile view
@@ -315,7 +309,8 @@ class ProductController extends Controller
                 'description' => $product->description,
                 'details' => $product->details,
                 'status' => $product->status,
-                'stock_id' => $product->stocks->first() ? $product->stocks->first()->id : null // Add stock_id
+                'stock_id' => $product->stocks->first() ? $product->stocks->first()->id : null,
+                'wishlist_id' => $product->wishlists->isNotEmpty() ? $product->wishlists->first()->id : null
             ];
         });
 
@@ -334,4 +329,36 @@ class ProductController extends Controller
             'total' => $products->total(),
         ]);
     }
+    public function search(Request $request, $name)
+    {
+        $products = Product::where('name', 'LIKE', "%{$name}%")
+            ->where('status', 1) // Only include active products
+            ->with(['category', 'stocks', 'wishlists'])
+            ->get();
+
+        $transformedProducts = $products->map(function ($product) {
+            return [
+                'id' => $product->id,
+                'name' => $product->name,
+                'price' => $product->price,
+                'photo' => $product->photo,
+                'category' => $product->category ? $product->category->name : null,
+                'in_stock' => $product->stocks->sum('quantity') > 0,
+                'description' => $product->description,
+                'details' => $product->details,
+                'status' => $product->status,
+                'stock_id' => $product->stocks->first() ? $product->stocks->first()->id : null,
+                'wishlist_id' => $product->wishlists->isNotEmpty() ? $product->wishlists->first()->id : null
+            ];
+        });
+
+        return response()->json($transformedProducts);
+    }
+    // public function search($name){
+//     return Product::with('category','stocks')
+//         ->where('name', 'like', '%'.$name.'%')
+//         ->orderBy('created_at','desc')
+//         ->paginate(4);
+// }
 }
+

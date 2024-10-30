@@ -3,12 +3,13 @@
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProductOrdersController;
+use App\Http\Controllers\ReviewController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\AdminController;
+use App\Http\Controllers\PayPalController;
 use App\Http\Controllers\PaymentController;
-
 
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
@@ -48,10 +49,10 @@ Route::post('/shopping-cart', 'App\Http\Controllers\ShoppingCartController@store
 Route::put('/shopping-cart/{id}', 'App\Http\Controllers\ShoppingCartController@update');
 Route::delete('/shopping-cart/{id}', 'App\Http\Controllers\ShoppingCartController@destroy');
 
-Route::get('/products/wishlist/count', 'App\Http\Controllers\ProductWishlistController@count');
-Route::get('/products/wishlist', 'App\Http\Controllers\ProductWishlistController@index');
-Route::post('/products/wishlist', 'App\Http\Controllers\ProductWishlistController@store');
-Route::delete('/products/wishlist/{id}', 'App\Http\Controllers\ProductWishlistController@destroy');
+// Route::get('/products/wishlist/count', 'App\Http\Controllers\ProductWishlistController@count');
+// Route::get('/products/wishlist', 'App\Http\Controllers\ProductWishlistController@index');
+// Route::post('/products/wishlist', 'App\Http\Controllers\ProductWishlistController@store');
+// Route::delete('/products/wishlist/{id}', 'App\Http\Controllers\ProductWishlistController@destroy');
 
 #
 Route::get('/products/stocks/{id}', 'App\Http\Controllers\Stocks@show');
@@ -59,12 +60,30 @@ Route::post('/newsletter', 'App\Http\Controllers\NewsLetterController@store');
 
 Route::post('/product/orders', 'App\Http\Controllers\ProductOrdersController@store');
 Route::get('/product/orders', 'App\Http\Controllers\ProductOrdersController@index');
-Route::get('/product/orders/{id}', 'App\Http\Controllers\ProductOrdersController@show');
+// Route::get('/product/orders/{orderCode}', 'App\Http\Controllers\ProductOrdersController@show');
 
+Route::post('/reviews', 'App\Http\Controllers\ReviewController@store');
+Route::get('/products/{product}/reviews', 'App\Http\Controllers\ReviewController@index')->name('product.reviews');
+
+Route::get('/products/search/{name}', 'App\Http\Controllers\ProductController@search');
+
+// wishlist
+Route::post('/products/wishlist', 'App\Http\Controllers\ProductWishlistController@store');
+Route::get('/products/wishlist', 'App\Http\Controllers\ProductWishlistController@index');
+Route::delete('/products/wishlist/{id}', 'App\Http\Controllers\ProductWishlistController@destroy');
 
 // Route::post('/create-payment', [PaymentController::class, 'createPayment']);
 // Route::get('/paypal-success', [PaymentController::class, 'paypalSuccess'])->name('paypal.success');
 // Route::get('/paypal-cancel', [PaymentController::class, 'paypalCancel'])->name('paypal.cancel');
+
+
+// Route::get('/paypal', '\App\Http\Controllers\PayPalController@index');
+// Route::get('/create/{amount}', '\App\Http\Controllers\PayPalController@create');
+// Route::post('/complete', '\App\Http\Controllers\PayPalController@complete');
+
+// Route::post('/payment/create', [PaymentController::class, 'createPayment']);
+// Route::get('/payment/success', [PaymentController::class, 'success']);
+// Route::get('/payment/cancel', [PaymentController::class, 'cancel']);
 
 
 
@@ -88,13 +107,16 @@ Route::put('/admin/categories/{id}', 'App\Http\Controllers\CategoryController@ad
 Route::delete('/admin/categories/{id}', 'App\Http\Controllers\CategoryController@admindestroy');
 
 
-
-
 // Mobile routes
 Route::prefix('mobile')->group(function () {
     // auth
     Route::post('/login', 'App\Http\Controllers\UserController@login');
     Route::post('/register', 'App\Http\Controllers\UserController@registerr');
+    // Route::put('/user/update/{id}', 'App\Http\Controllers\UserController@update');
+    //update
+    Route::put('/user/update/{id}', 'App\Http\Controllers\UserController@update');
+    Route::post('/user/change-password', 'App\Http\Controllers\UserController@changePassword');
+    Route::post('/users/photo', 'App\Http\Controllers\UserController@updatePhoto');
     //prduct
     Route::get('/products', 'App\Http\Controllers\ProductController@mobileindex');
     //category
@@ -108,4 +130,15 @@ Route::prefix('mobile')->group(function () {
     //product orders
     Route::post('/orders', 'App\Http\Controllers\ProductOrdersController@storee');
     Route::get('/orders', 'App\Http\Controllers\ProductOrdersController@indexx');
+    // history
+    Route::get('/product/orders', 'App\Http\Controllers\ProductOrdersController@indexxx');
+    //
+    Route::get('/product/categories/{id}', 'App\Http\Controllers\CategoryController@queryMobile');
+    //wishlist
+    Route::post('/products/wishlist', 'App\Http\Controllers\ProductWishlistController@store');
+    Route::get('/products/wishlist', 'App\Http\Controllers\ProductWishlistController@index');
+    Route::delete('/products/wishlist/{id}', 'App\Http\Controllers\ProductWishlistController@destroy'); 
+
+    Route::get('/products/search/{name}', 'App\Http\Controllers\ProductController@search');
 });
+

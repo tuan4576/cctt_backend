@@ -37,6 +37,10 @@ class Product extends Model
     {
         return $this->hasMany('App\Models\Stock');
     }
+    public function wishlists()
+    {
+        return $this->hasMany('App\Models\Wishlist');
+    }    
     
 
 }

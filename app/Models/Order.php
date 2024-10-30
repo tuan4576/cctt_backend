@@ -3,7 +3,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 class Order extends Model
 {
-    protected $fillable = ['user_id', 'stock_id', 'quantity', 'note', 'status'];
+    protected $fillable = ['user_id', 'stock_id', 'quantity', 'order_code', 'note', 'status'];
 
     public function user() {
         return $this->belongsTo('App\Models\User');
@@ -16,4 +16,5 @@ class Order extends Model
     public function product(){
         return $this->hasOneThrough('App\Models\Product', 'App\Models\Stock');
     }
+    
 }

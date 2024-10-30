@@ -3,42 +3,44 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use App\Services\PayPalService;
+use Srmklive\PayPal\Services\PayPal as PayPalClient;
 
 class PaymentController extends Controller
 {
-    protected $payPalService;
-
-    public function __construct(PayPalService $payPalService)
-    {
-        $this->payPalService = $payPalService;
-    }
-
     public function createPayment(Request $request)
     {
-        try {
-            $order = $this->payPalService->createOrder($request->amount);
-            if ($order) {
-                return response()->json(['approval_url' => $order->result->links[1]->href]);
-            }
-            return response()->json([
-                'error' => 'Payment creation failed'
-            ], 500);
-        } catch (\Exception $e) {
-            \Log::error('PayPal error: ' . $e->getMessage());
-            return response()->json([
-                'error' => 'An error occurred while processing the payment'
-            ], 500);
+        $this->validate($request, [
+            'amount' => 'required|numeric',
+        ]);
+
+        $paypal = new PayPalClient();
+        $paypal->setApiCredentials(config('paypal'));
+        $paypal->setAccessToken($paypal->getAccessToken());
+
+        $data = [
+            'intent' => 'sale',
+            'redirect_urls' => [
+                'return_url' => url('/payment/success'),
+                'cancel_url' => url('/payment/cancel'),
+            ],
+            'payer' => [
+                'payment_method' => 'paypal',
+            ],
+            'transactions' => [[
+                'amount' => [
+                    'total' => $request->amount,
+                    'currency' => 'USD',
+                ],
+                'description' => 'Payment description.',
+            ]],
+        ];
+
+        $response = $paypal->createOrder($data);
+
+        if (isset($response['id'])) {
+            return response()->json($response);
         }
-    }
 
-    public function paypalSuccess(Request $request)
-    {
-        return "Payment Successful!";
-    }
-
-    public function paypalCancel()
-    {
-        return "Payment Cancelled!";
+        return response()->json($response, 500); // Trả về mã lỗi 500 nếu có lỗi
     }
 }
